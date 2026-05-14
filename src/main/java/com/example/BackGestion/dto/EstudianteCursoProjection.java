@@ -8,4 +8,5 @@ public interface EstudianteCursoProjection {
     String getEstudianteFullName();
     String getDocenteACargo();
     Integer getEstudianteId();
+    String getEmail();
 }

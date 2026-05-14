@@ -19,7 +19,8 @@ public interface EstudianteRepository extends JpaRepository<Estudiante, Integer>
                    "    u.rut, " +
                    "    u.apellido_paterno || ' ' || u.apellido_materno || ', ' || u.nombre AS estudianteFullName, " +
                    "    d_u.nombre || ' ' || d_u.apellido_paterno AS docenteACargo, " +
-                   "    e.estudiante_id AS estudianteId " +
+                   "    e.estudiante_id AS estudianteId, " +
+                   "    u.email AS email " +
                    "FROM estudiantes e " +
                    "INNER JOIN usuarios u ON e.estudiante_id = u.usuario_id " +
                    "INNER JOIN cursos c ON e.curso_id = c.curso_id " +
