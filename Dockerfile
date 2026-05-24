@@ -14,8 +14,12 @@ RUN ./mvnw -DskipTests package \
        test -n "$JAR"; \
        cp "$JAR" /function.jar
 
-FROM public.ecr.aws/lambda/java:17
+FROM eclipse-temurin:17-jre
 
-COPY --from=build /function.jar ${LAMBDA_TASK_ROOT}/app.jar
+WORKDIR /app
 
-CMD ["com.example.BackGestion.StreamLambdaHandler::handleRequest"]
+COPY --from=build /function.jar /app/app.jar
+
+EXPOSE 8080
+
+ENTRYPOINT ["java", "-jar", "/app/app.jar"]
