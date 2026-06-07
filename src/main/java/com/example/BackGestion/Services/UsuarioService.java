@@ -2,6 +2,7 @@ package com.example.BackGestion.Services;
 
 import com.example.BackGestion.Model.Usuario;
 import com.example.BackGestion.Repository.UsuarioRepository;
+import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.stereotype.Service;
 
 import com.example.BackGestion.dto.LoginProjection;
@@ -12,6 +13,7 @@ import java.util.List;
 public class UsuarioService {
 
     private final UsuarioRepository usuarioRepository;
+    private final BCryptPasswordEncoder passwordEncoder = new BCryptPasswordEncoder();
 
     public UsuarioService(UsuarioRepository usuarioRepository) {
         this.usuarioRepository = usuarioRepository;
@@ -32,6 +34,9 @@ public class UsuarioService {
     }
 
     public Usuario guardar(Usuario usuario) {
+        if (usuario.getPassword() != null && !usuario.getPassword().isEmpty()) {
+            usuario.setPassword(passwordEncoder.encode(usuario.getPassword()));
+        }
         return usuarioRepository.save(usuario);
     }
 
@@ -43,7 +48,7 @@ public class UsuarioService {
         usuario.setApellidoMaterno(usuarioDetalles.getApellidoMaterno());
         usuario.setEmail(usuarioDetalles.getEmail());
         if (usuarioDetalles.getPassword() != null && !usuarioDetalles.getPassword().isEmpty()) {
-            usuario.setPassword(usuarioDetalles.getPassword());
+            usuario.setPassword(passwordEncoder.encode(usuarioDetalles.getPassword()));
         }
         usuario.setRolId(usuarioDetalles.getRolId());
         usuario.setActivo(usuarioDetalles.getActivo());
