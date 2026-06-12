@@ -3,9 +3,11 @@ package com.example.BackGestion.Controller;
 import com.example.BackGestion.Model.Asignatura;
 import com.example.BackGestion.Model.Curso;
 import com.example.BackGestion.Model.CAD;
+import com.example.BackGestion.Model.Sala;
 import com.example.BackGestion.Repository.AsignaturaRepository;
 import com.example.BackGestion.Repository.CursoRepository;
 import com.example.BackGestion.Repository.CADRepository;
+import com.example.BackGestion.Repository.SalaRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
 
@@ -24,6 +26,9 @@ public class AcademicoController {
 
     @Autowired
     private CADRepository cadRepository;
+
+    @Autowired
+    private SalaRepository salaRepository;
 
     // --- CURSOS ---
     @GetMapping("/cursos")
@@ -66,5 +71,21 @@ public class AcademicoController {
     @DeleteMapping("/cad/{id}")
     public void eliminarCAD(@PathVariable Integer id) {
         cadRepository.deleteById(id);
+    }
+
+    // --- SALAS ---
+    @GetMapping("/salas")
+    public List<Sala> listarSalas() {
+        return salaRepository.findAll();
+    }
+
+    @PostMapping("/salas")
+    public Sala crearSala(@RequestBody Sala sala) {
+        return salaRepository.save(sala);
+    }
+
+    @DeleteMapping("/salas/{id}")
+    public void eliminarSala(@PathVariable Integer id) {
+        salaRepository.deleteById(id);
     }
 }

@@ -8,4 +8,5 @@ public interface DocenteCursoProjection {
     Integer getCursoId();
     Integer getAsignaturaId();
     Integer getCadId();
+    String getSalaNombre();
 }

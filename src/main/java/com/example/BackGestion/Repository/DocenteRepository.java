@@ -19,10 +19,11 @@ public interface DocenteRepository extends JpaRepository<Docente, Integer> {
                    "    AND u.usuario_id = :docenteId " +
                    "), " +
                    "cursos_asignados AS ( " +
-                   "    SELECT cad.id AS cad_id, cad.docente_id, c.nivel, c.letra, c.anio_academico, a.nombre AS asignatura_nombre, c.curso_id, cad.asignatura_id " +
+                   "    SELECT cad.id AS cad_id, cad.docente_id, c.nivel, c.letra, c.anio_academico, a.nombre AS asignatura_nombre, c.curso_id, cad.asignatura_id, s.nombre AS sala_nombre " +
                    "    FROM curso_asignatura_docente cad " +
                    "    INNER JOIN cursos c ON cad.curso_id = c.curso_id " +
                    "    INNER JOIN asignaturas a ON cad.asignatura_id = a.asignatura_id " +
+                   "    LEFT JOIN salas s ON cad.sala_id = s.sala_id " +
                    ") " +
                    "SELECT di.nombre || ' ' || COALESCE(di.apellido_paterno, '') AS docente, " +
                    "       ca.asignatura_nombre AS asignaturaNombre, " +
@@ -30,7 +31,8 @@ public interface DocenteRepository extends JpaRepository<Docente, Integer> {
                    "       ca.anio_academico AS anioAcademico, " +
                    "       ca.curso_id AS cursoId, " +
                    "       ca.asignatura_id AS asignaturaId, " +
-                   "       ca.cad_id AS cadId " +
+                   "       ca.cad_id AS cadId, " +
+                   "       ca.sala_nombre AS salaNombre " +
                    "FROM docente_info di " +
                    "INNER JOIN cursos_asignados ca ON di.docente_id = ca.docente_id " +
                    "ORDER BY docente ASC, ca.anio_academico DESC", nativeQuery = true)
@@ -42,10 +44,12 @@ public interface DocenteRepository extends JpaRepository<Docente, Integer> {
                    "       c.anio_academico as anioAcademico, " +
                    "       c.curso_id as cursoId, " +
                    "       a.asignatura_id as asignaturaId, " +
-                   "       cad.id as cadId " +
+                   "       cad.id as cadId, " +
+                   "       s.nombre as salaNombre " +
                    "FROM curso_asignatura_docente cad " +
                    "JOIN usuarios u ON cad.docente_id = u.usuario_id " +
                    "JOIN cursos c ON cad.curso_id = c.curso_id " +
-                   "JOIN asignaturas a ON cad.asignatura_id = a.asignatura_id", nativeQuery = true)
+                   "JOIN asignaturas a ON cad.asignatura_id = a.asignatura_id " +
+                   "LEFT JOIN salas s ON cad.sala_id = s.sala_id", nativeQuery = true)
     List<DocenteCursoProjection> findAllCADs();
 }

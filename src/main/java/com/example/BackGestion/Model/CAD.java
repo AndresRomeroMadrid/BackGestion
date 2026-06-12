@@ -19,4 +19,7 @@ public class CAD {
 
     @Column(name = "docente_id")
     private Integer docenteId;
+
+    @Column(name = "sala_id")
+    private Integer salaId;
 }
