@@ -8,6 +8,8 @@ import com.example.BackGestion.Repository.EvaluacionRepository;
 import com.example.BackGestion.Repository.NotaRepository;
 import com.example.BackGestion.dto.NotaEstudianteProjection;
 import com.example.BackGestion.dto.NotificacionNotasEvent;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.amqp.rabbit.core.RabbitTemplate;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
@@ -18,6 +20,8 @@ import java.util.stream.Collectors;
 
 @Service
 public class NotaService {
+
+    private static final Logger log = LoggerFactory.getLogger(NotaService.class);
 
     @Autowired
     private NotaRepository notaRepository;
@@ -51,14 +55,20 @@ public class NotaService {
             return List.of();
         }
 
+        log.info("[RabbitMQ] Guardando {} notas en bulk", notas.size());
+
         List<Nota> guardadas = notas.stream()
                 .map(this::guardarOActualizarNota)
                 .collect(Collectors.toList());
+
+        log.info("[RabbitMQ] {} notas guardadas en BD", guardadas.size());
 
         Integer evaluacionId = notas.get(0).getEvaluacionId();
         String evaluacionNombre = evaluacionRepository.findById(evaluacionId)
                 .map(e -> e.getNombre())
                 .orElse(null);
+
+        log.info("[RabbitMQ] Evaluacion resuelta: id={}, nombre={}", evaluacionId, evaluacionNombre);
 
         List<Integer> estudianteIds = notas.stream()
                 .map(Nota::getEstudianteId)
@@ -74,8 +84,15 @@ public class NotaService {
                         })
                         .collect(Collectors.toList());
 
+        log.info("[RabbitMQ] Destinatarios resueltos: {}", destinatarios.stream()
+                .map(NotificacionNotasEvent.Destinatario::getEmail)
+                .collect(Collectors.joining(", ")));
+
         NotificacionNotasEvent event = new NotificacionNotasEvent(evaluacionId, evaluacionNombre, destinatarios);
+
+        log.info("[RabbitMQ] Publicando evento en exchange='{}' routingKey='{}'", exchange, routingKey);
         rabbitTemplate.convertAndSend(exchange, routingKey, event);
+        log.info("[RabbitMQ] Evento publicado exitosamente");
 
         return guardadas;
     }
