@@ -6,7 +6,6 @@ import com.example.BackGestion.dto.NotaEstudianteProjection;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
 
-import java.util.ArrayList;
 import java.util.List;
 
 @RestController
@@ -27,11 +26,7 @@ public class NotaController {
 
     @PostMapping("/bulk")
     public List<Nota> guardarVarias(@RequestBody List<Nota> notas) {
-        List<Nota> resultados = new ArrayList<>();
-        for (Nota nota : notas) {
-            resultados.add(notaService.guardarOActualizarNota(nota));
-        }
-        return resultados;
+        return notaService.guardarBulkYPublicar(notas);
     }
 
     @GetMapping
