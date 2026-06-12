@@ -24,12 +24,12 @@ public class RabbitMQConfig {
 
     @Bean
     public Queue queue() {
-        return new Queue(queue, false);
+        return new Queue(queue, true);
     }
 
     @Bean
     public DirectExchange exchange() {
-        return new DirectExchange(exchange, false, false);
+        return new DirectExchange(exchange, true, false);
     }
 
     @Bean
