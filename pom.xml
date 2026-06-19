@@ -24,6 +24,18 @@
         <lombok.version>1.18.34</lombok.version>
     </properties>
 
+    <dependencyManagement>
+        <dependencies>
+            <dependency>
+                <groupId>software.amazon.awssdk</groupId>
+                <artifactId>bom</artifactId>
+                <version>2.25.70</version>
+                <type>pom</type>
+                <scope>import</scope>
+            </dependency>
+        </dependencies>
+    </dependencyManagement>
+
     <dependencies>
 
         <!-- Spring Boot Web -->
@@ -67,13 +79,6 @@
             <version>2.5.0</version>
         </dependency>
 
-        <!-- AWS Lambda Spring Boot -->
-        <dependency>
-            <groupId>com.amazonaws.serverless</groupId>
-            <artifactId>aws-serverless-java-container-springboot3</artifactId>
-            <version>2.0.1</version>
-        </dependency>
-
         <!-- BCrypt (Spring Security Crypto standalone, sin activar filtros de seguridad) -->
         <dependency>
             <groupId>org.springframework.security</groupId>
@@ -83,6 +88,11 @@
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-amqp</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>software.amazon.awssdk</groupId>
+            <artifactId>sqs</artifactId>
         </dependency>
 
 

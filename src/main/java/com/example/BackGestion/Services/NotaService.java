@@ -8,12 +8,15 @@ import com.example.BackGestion.Repository.EvaluacionRepository;
 import com.example.BackGestion.Repository.NotaRepository;
 import com.example.BackGestion.dto.NotaEstudianteProjection;
 import com.example.BackGestion.dto.NotificacionNotasEvent;
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.amqp.rabbit.core.RabbitTemplate;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
+import software.amazon.awssdk.services.sqs.SqsClient;
 
 import java.util.List;
 import java.util.stream.Collectors;
@@ -32,14 +35,26 @@ public class NotaService {
     @Autowired
     private EstudianteRepository estudianteRepository;
 
-    @Autowired
+    @Autowired(required = false)
     private RabbitTemplate rabbitTemplate;
 
-    @Value("${rabbitmq.exchange}")
+    @Autowired(required = false)
+    private SqsClient sqsClient;
+
+    @Autowired
+    private ObjectMapper objectMapper;
+
+    @Value("${rabbitmq.exchange:}")
     private String exchange;
 
-    @Value("${rabbitmq.routing-key}")
+    @Value("${rabbitmq.routing-key:}")
     private String routingKey;
+
+    @Value("${app.environment:dev}")
+    private String environment;
+
+    @Value("${aws.sqs.queue-url:}")
+    private String sqsQueueUrl;
 
     public Nota guardarOActualizarNota(Nota nota) {
         return notaRepository.findByEvaluacionIdAndEstudianteId(nota.getEvaluacionId(), nota.getEstudianteId())
@@ -90,9 +105,19 @@ public class NotaService {
 
         NotificacionNotasEvent event = new NotificacionNotasEvent(evaluacionId, evaluacionNombre, destinatarios);
 
-        log.info("[RabbitMQ] Publicando evento en exchange='{}' routingKey='{}'", exchange, routingKey);
-        rabbitTemplate.convertAndSend(exchange, routingKey, event);
-        log.info("[RabbitMQ] Evento publicado exitosamente");
+        if ("prod".equals(environment)) {
+            try {
+                String json = objectMapper.writeValueAsString(event);
+                sqsClient.sendMessage(r -> r.queueUrl(sqsQueueUrl).messageBody(json));
+                log.info("[SQS] Evento publicado en cola {}", sqsQueueUrl);
+            } catch (JsonProcessingException e) {
+                throw new RuntimeException("Error serializando evento para SQS", e);
+            }
+        } else {
+            log.info("[RabbitMQ] Publicando evento en exchange='{}' routingKey='{}'", exchange, routingKey);
+            rabbitTemplate.convertAndSend(exchange, routingKey, event);
+            log.info("[RabbitMQ] Evento publicado exitosamente");
+        }
 
         return guardadas;
     }
