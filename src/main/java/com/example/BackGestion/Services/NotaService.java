@@ -1,6 +1,5 @@
 package com.example.BackGestion.Services;
 
-import com.example.BackGestion.Model.Estudiante;
 import com.example.BackGestion.Model.Nota;
 import com.example.BackGestion.Model.Usuario;
 import com.example.BackGestion.Repository.EstudianteRepository;

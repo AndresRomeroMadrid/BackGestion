@@ -181,7 +181,17 @@ Ejecutar pruebas:
 .\mvnw.cmd test
 ```
 
-Actualmente el proyecto incluye una prueba base de contexto Spring (`contextLoads`), por lo que conviene complementar con pruebas funcionales a medida que evolucione la API.
+Actualmente el proyecto incluye pruebas unitarias de lógica de negocio (JUnit 5 + Mockito) para `NotaService`, además de la prueba base de contexto de Spring. Se desarrollaron las siguientes pruebas específicas para validar el flujo crítico de gestión de notas:
+
+1. **`guardarBulkYPublicar_EmptyList_ReturnsEmpty`**: Valida que al intentar guardar una lista vacía de notas, el sistema responda eficientemente sin interactuar con la base de datos ni los servicios de mensajería.
+2. **`guardarBulkYPublicar_DevEnvironment_SavesAndPublishesToRabbitMQ`**: Prueba el escenario de éxito en el entorno de desarrollo (`dev`), verificando que las notas se guarden correctamente, se recuperen los datos del estudiante y se publique el evento de notificación en **RabbitMQ** (asegurando que SQS no sea invocado).
+3. **`guardarOActualizarNota_ExistingNote_UpdatesValue`**: Valida que si se intenta registrar una nota para un estudiante y evaluación que ya existen, el sistema actualice el registro existente en lugar de duplicarlo.
+
+Para correr específicamente estas pruebas unitarias de negocio, puedes usar:
+
+```powershell
+.\mvnw.cmd test -Dtest=NotaServiceTest
+```
 
 ## Ejecucion con Docker
 
