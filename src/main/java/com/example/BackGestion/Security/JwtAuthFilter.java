@@ -39,6 +39,11 @@ public class JwtAuthFilter extends OncePerRequestFilter {
             "/api-docs/**"
     );
 
+    // Rutas publicas que solo aplican para GET (no cubren POST/DELETE del mismo path)
+    private static final List<String> PATRONES_PUBLICOS_GET = List.of(
+            "/api/academico/cursos"
+    );
+
     private final JwtUtil jwtUtil;
     private final ObjectMapper objectMapper = new ObjectMapper();
 
@@ -54,7 +59,11 @@ public class JwtAuthFilter extends OncePerRequestFilter {
         // getServletPath() ya viene decodificado y normalizado por el contenedor
         // (sin ".." ni "//"), a diferencia de getRequestURI().
         String path = request.getServletPath();
-        return PATRONES_PUBLICOS.stream().anyMatch(patron -> PATH_MATCHER.match(patron, path));
+        if (PATRONES_PUBLICOS.stream().anyMatch(patron -> PATH_MATCHER.match(patron, path))) {
+            return true;
+        }
+        return HttpMethod.GET.matches(request.getMethod())
+                && PATRONES_PUBLICOS_GET.stream().anyMatch(patron -> PATH_MATCHER.match(patron, path));
     }
 
     @Override
