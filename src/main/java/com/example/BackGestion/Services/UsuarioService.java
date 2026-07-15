@@ -2,6 +2,7 @@ package com.example.BackGestion.Services;
 
 import com.example.BackGestion.Model.Usuario;
 import com.example.BackGestion.Repository.UsuarioRepository;
+import com.example.BackGestion.Util.RutValidator;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.stereotype.Service;
 
@@ -34,6 +35,9 @@ public class UsuarioService {
     }
 
     public Usuario guardar(Usuario usuario) {
+        if (usuario.getRut() != null && !usuario.getRut().isBlank()) {
+            usuario.setRut(RutValidator.formatear(usuario.getRut()));
+        }
         if (usuario.getPassword() != null && !usuario.getPassword().isEmpty()) {
             usuario.setPassword(passwordEncoder.encode(usuario.getPassword()));
         }
@@ -42,7 +46,9 @@ public class UsuarioService {
 
     public Usuario actualizar(Integer id, Usuario usuarioDetalles) {
         Usuario usuario = obtenerPorId(id);
-        usuario.setRut(usuarioDetalles.getRut());
+        if (usuarioDetalles.getRut() != null && !usuarioDetalles.getRut().isBlank()) {
+            usuario.setRut(RutValidator.formatear(usuarioDetalles.getRut()));
+        }
         usuario.setNombre(usuarioDetalles.getNombre());
         usuario.setApellidoPaterno(usuarioDetalles.getApellidoPaterno());
         usuario.setApellidoMaterno(usuarioDetalles.getApellidoMaterno());

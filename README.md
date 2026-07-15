@@ -9,9 +9,13 @@ Backend Spring Boot para la gestion academica de un colegio. Expone una API REST
 - Maven Wrapper (`mvnw`, `mvnw.cmd`)
 - Spring Web
 - Spring Data JPA
-- PostgreSQL
+- PostgreSQL (H2 declarada como dependencia runtime, sin uso activo)
 - Springdoc OpenAPI / Swagger UI
-- Soporte adicional para AWS Lambda mediante `aws-serverless-java-container-springboot3`
+- Autenticacion por JWT (validacion propia, sin Spring Security completo) con `spring-security-crypto` para BCrypt
+- Mensajeria dual: RabbitMQ (`spring-boot-starter-amqp`) en `dev` y AWS SQS (`software.amazon.awssdk:sqs`) en `prod`
+- JaCoCo para cobertura de pruebas
+- Despliegue como contenedor Docker en AWS ECS Fargate (imagen generada por el `Dockerfile` del repo)
+- Soporte adicional (no es el flujo principal de despliegue) para AWS Lambda mediante `StreamLambdaHandler` / `aws-serverless-java-container-springboot3`
 
 ## Arquitectura y patrones usados
 
@@ -22,7 +26,9 @@ El proyecto sigue una organizacion por capas:
 - `Repository`: acceso a datos con Spring Data JPA y consultas nativas.
 - `Model`: entidades del dominio.
 - `dto`: projections y contratos usados para respuestas o autenticacion.
-- `Config`: configuraciones transversales, como CORS.
+- `Config`: configuraciones transversales, como CORS, RabbitMQ y SQS.
+- `Security`: filtro y utilidades de validacion de JWT.
+- `Util`: utilidades de dominio (por ejemplo, validacion/formateo de RUT).
 
 Patrones visibles en el codigo:
 
@@ -31,6 +37,8 @@ Patrones visibles en el codigo:
 - Repositories basados en `JpaRepository`
 - DTO/Projection pattern para consultas optimizadas
 - Configuracion externalizada mediante variables de entorno y perfiles
+- Filtro de autenticacion (`OncePerRequestFilter`) para validar JWT en cada request
+- Mensajeria dual por perfil de entorno (RabbitMQ en `dev`, SQS en `prod`)
 
 ## Estructura del proyecto
 
@@ -39,11 +47,20 @@ src/
   main/
     java/com/example/BackGestion/
       Config/
+        CorsConfig.java
+        RabbitMQConfig.java
+        SqsConfig.java
       Controller/
       dto/
       Model/
       Repository/
+      Security/
+        JwtAuthFilter.java
+        JwtUtil.java
+        JwtValidationException.java
       Services/
+      Util/
+        RutValidator.java
       BackGestionApplication.java
       StreamLambdaHandler.java
       SwaggerConfig.java
@@ -53,6 +70,8 @@ src/
   test/
     java/com/example/BackGestion/
       BackGestionApplicationTests.java
+      Services/
+        NotaServiceTest.java
 Dockerfile
 pom.xml
 .env.example
@@ -78,6 +97,17 @@ La documentacion interactiva queda disponible en:
 - Swagger UI: `http://localhost:8080/swagger-ui.html`
 - OpenAPI JSON: `http://localhost:8080/api-docs`
 
+## Autenticacion (JWT)
+
+Todas las rutas requieren un JWT valido en el header `Authorization: Bearer <token>`, excepto:
+
+- `/api/usuarios/login`
+- `/swagger-ui/**`, `/swagger-ui.html`
+- `/v3/api-docs/**`, `/api-docs/**`
+- Peticiones `OPTIONS` (preflight CORS)
+
+El token se valida con `JwtAuthFilter` + `JwtUtil` usando el secreto `JWT_SECRET`; este servicio **valida** el JWT pero no lo emite (se asume que lo emite otro servicio de autenticacion). Si el token falta o es invalido, la API responde `401` con un JSON `{"error": "..."}`.
+
 ## Requisitos previos
 
 Para ejecutar el proyecto localmente necesitas:
@@ -90,15 +120,34 @@ No es obligatorio instalar Maven globalmente, porque el repositorio ya incluye M
 
 ## Configuracion
 
-La aplicacion usa variables de entorno para conectarse a PostgreSQL:
+La aplicacion se configura enteramente por variables de entorno (ver `src/main/resources/application.properties`):
 
-```env
-DB_URL=
-DB_USERNAME=
-DB_PASSWORD=
-```
+| Variable | Default si no se define | Uso |
+|---|---|---|
+| `DB_URL` | `jdbc:postgresql://localhost:5432/colegio` | conexion a PostgreSQL |
+| `DB_USERNAME` | `postgres` | usuario de PostgreSQL |
+| `DB_PASSWORD` | `secure-key` | password de PostgreSQL |
+| `JWT_SECRET` | `default-secret` | secreto para validar los JWT recibidos |
+| `RABBITMQ_HOST` | `localhost` | host de RabbitMQ (usado cuando `ENVIRONMENT=dev`) |
+| `RABBITMQ_PORT` | `5672` | puerto de RabbitMQ |
+| `RABBITMQ_USER` | `admin` | usuario de RabbitMQ |
+| `RABBITMQ_PASS` | `admin123` | password de RabbitMQ |
+| `ENVIRONMENT` | `dev` | selecciona el canal de mensajeria: `dev` → RabbitMQ, `prod` → SQS |
+| `SQS_QUEUE_URL` | *(vacio)* | URL de la cola SQS, requerida cuando `ENVIRONMENT=prod` |
 
-Puedes tomar como base el archivo [.env.example](/C:/Users/marti/Desktop/fullstack3/ms_gestion/.env.example).
+En `dev`, los eventos de notas se publican en RabbitMQ (exchange `gestion.exchange`, queue `gestion.queue`, routing key `gestion.eventos`). En `prod`, se publican en la cola SQS indicada por `SQS_QUEUE_URL`; el bean `SqsClient` (`Config/SqsConfig.java`) solo se crea cuando `ENVIRONMENT=prod`, y usa las credenciales/rol de AWS del entorno de ejecucion (no hay `AWS_ACCESS_KEY_ID`/`AWS_SECRET_ACCESS_KEY` explicitas en el proyecto: se espera un rol IAM, por ejemplo el task role de ECS).
+
+Puedes tomar como base el archivo [.env.example](.env.example) (actualmente solo cubre `DB_*` y `JWT_SECRET`; complementa con las variables de RabbitMQ/SQS segun el entorno).
+
+### CORS
+
+`Config/CorsConfig.java` restringe los origenes permitidos (no esta abierto a `*`):
+
+- `http://localhost:4200`
+- `https://martin-romero.cl`
+- `https://*.martin-romero.cl`
+
+Metodos permitidos: `GET`, `POST`, `PUT`, `DELETE`, `OPTIONS`. Si se agrega un nuevo frontend/dominio, hay que sumarlo ahi.
 
 ### Importante sobre la base de datos
 
@@ -272,13 +321,32 @@ o abre directamente:
 ## Variables y comportamiento relevantes
 
 - Puerto HTTP: `8080`
-- CORS: actualmente abierto a cualquier origen (`*`)
-- Base de datos principal: PostgreSQL
+- Todas las rutas requieren JWT salvo login/Swagger/OpenAPI/OPTIONS (ver [Autenticacion (JWT)](#autenticacion-jwt))
+- CORS restringido a origenes especificos, no abierto a `*` (ver seccion [CORS](#cors))
+- Base de datos principal: PostgreSQL, con `spring.jpa.hibernate.ddl-auto=none` (no crea/actualiza esquema)
 - H2 esta declarada como dependencia runtime, pero la configuracion activa del proyecto apunta a PostgreSQL
+- Mensajeria dual segun `ENVIRONMENT` (`dev` → RabbitMQ, `prod` → SQS)
+
+## Despliegue en AWS ECS Fargate
+
+El despliegue objetivo de este servicio es una **task de ECS sobre Fargate**, construida a partir del `Dockerfile` del repo (imagen basada en `eclipse-temurin:17-jre`, expone el puerto `8080`).
+
+Puntos a tener en cuenta al definir la task definition / servicio:
+
+- **Container port**: `8080`, mapeado normalmente detras de un Application Load Balancer.
+- **Variables de entorno / secretos**: definir en la task definition (idealmente `DB_PASSWORD` y `JWT_SECRET` como `secrets` desde AWS Secrets Manager o SSM Parameter Store, no como `environment` en texto plano):
+  - `DB_URL`, `DB_USERNAME`, `DB_PASSWORD`
+  - `JWT_SECRET`
+  - `ENVIRONMENT=prod` (para que la app use SQS en vez de RabbitMQ)
+  - `SQS_QUEUE_URL`
+- **Task role (IAM)**: el bean `SqsClient` usa credenciales por defecto de la cadena de AWS SDK, por lo que el *task role* de ECS necesita permisos de `sqs:SendMessage` (y `sqs:GetQueueAttributes` si aplica) sobre la cola indicada en `SQS_QUEUE_URL`.
+- **Networking**: la task necesita alcanzar la instancia de PostgreSQL (RDS u otra) en la VPC/subnets configuradas; si `ENVIRONMENT=dev` tambien necesitaria alcanzar RabbitMQ, pero en `prod` no es necesario.
+- **Health check**: el proyecto no incluye Spring Boot Actuator, por lo que como health check (ALB target group o `HEALTHCHECK` del contenedor) se puede usar una ruta publica existente, por ejemplo `GET /api-docs` o `GET /swagger-ui.html`.
+- **Build/push de imagen**: `docker build -t backgestion:latest .` y luego `docker push` al repositorio ECR que consuma la task definition (no hay pipeline de CI/CD ni `buildspec.yml` en este repo todavia).
 
 ## Soporte para AWS Lambda
 
-Existe la clase `StreamLambdaHandler`, lo que indica preparacion para ejecutar la app sobre AWS Lambda usando el adaptador serverless de Spring Boot. Aun asi, el flujo principal del repositorio hoy esta orientado a ejecutarse como API Spring Boot tradicional y tambien dentro de Docker.
+Existe la clase `StreamLambdaHandler`, lo que indica preparacion para ejecutar la app sobre AWS Lambda usando el adaptador serverless de Spring Boot. Este camino queda como alternativa; el despliegue principal hoy es como contenedor Docker en ECS Fargate (tambien se puede correr localmente como API Spring Boot tradicional o con Docker Compose manual, ver seccion [Ejecucion con Docker](#ejecucion-con-docker)).
 
 ## Recomendaciones para desarrollo
 
@@ -315,4 +383,4 @@ Confirma que la app haya iniciado sin errores y luego prueba:
 
 ## Estado actual de documentacion
 
-Este README fue alineado al estado actual del repositorio y del `Dockerfile`. Si luego se agrega `docker-compose.yml`, migraciones SQL o nuevos perfiles Spring, conviene actualizar tambien esta guia operativa.
+Este README fue alineado al estado actual del repositorio (config de PostgreSQL, JWT, mensajeria RabbitMQ/SQS, CORS) y del `Dockerfile`, con el despliegue objetivo en AWS ECS Fargate. No existe todavia en el repo una task definition, `docker-compose.yml`, migraciones SQL ni pipeline de CI/CD; si se agregan, conviene actualizar tambien esta guia operativa.
