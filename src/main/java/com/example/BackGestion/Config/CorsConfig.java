@@ -14,7 +14,13 @@ public class CorsConfig {
             @Override
             public void addCorsMappings(CorsRegistry registry) {
                 registry.addMapping("/**")
-                        .allowedOrigins("*")
+                        // Front local (Angular) + dominio propio, incluyendo cualquier subdominio
+                        // (ej. app.martin-romero.cl, api.martin-romero.cl).
+                        .allowedOriginPatterns(
+                                "http://localhost:4200",
+                                "https://martin-romero.cl",
+                                "https://*.martin-romero.cl"
+                        )
                         .allowedMethods("GET", "POST", "PUT", "DELETE", "OPTIONS")
                         .allowedHeaders("*")
                         .allowCredentials(false);

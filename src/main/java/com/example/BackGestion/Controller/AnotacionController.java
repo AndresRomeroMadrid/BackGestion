@@ -9,7 +9,6 @@ import java.util.List;
 
 @RestController
 @RequestMapping("/api/anotaciones")
-@CrossOrigin(origins = "*")
 public class AnotacionController {
 
     @Autowired

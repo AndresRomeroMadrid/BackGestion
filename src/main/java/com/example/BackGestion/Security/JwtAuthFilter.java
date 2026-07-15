@@ -1,7 +1,6 @@
 package com.example.BackGestion.Security;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import io.jsonwebtoken.JwtException;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
@@ -74,7 +73,7 @@ public class JwtAuthFilter extends OncePerRequestFilter {
 
         try {
             jwtUtil.validarYObtenerClaims(token);
-        } catch (JwtException | IllegalArgumentException e) {
+        } catch (JwtValidationException e) {
             rechazar(response, "Token invalido o expirado");
             return;
         }
