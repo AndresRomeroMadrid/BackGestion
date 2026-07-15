@@ -41,7 +41,9 @@ public class JwtAuthFilter extends OncePerRequestFilter {
 
     // Rutas publicas que solo aplican para GET (no cubren POST/DELETE del mismo path)
     private static final List<String> PATRONES_PUBLICOS_GET = List.of(
-            "/api/academico/cursos"
+            "/api/academico/cursos",
+            "/api/estudiantes",
+            "/api/estudiantes/curso/*"
     );
 
     private final JwtUtil jwtUtil;
